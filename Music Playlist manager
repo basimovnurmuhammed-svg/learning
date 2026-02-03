@@ -1,0 +1,38 @@
+import datetime
+
+def music_manager():
+    # 1. Initialize our list to store song data
+    playlist = []
+    
+    # 2. Collect playlist metadata
+    title = input("Enter your playlist title: ")
+    creation_date = datetime.date.today()
+
+    print("\nEnter songs (type 'done' as the song name to finish):")
+    
+    # 3. Collect song name and artist
+    while True:
+        song_name = input("Song name: ")
+        if song_name.lower() == 'done':
+            break
+        artist = input("Artist name: ")
+        
+        # Store in a dictionary, then add to the list
+        playlist.append({"song": song_name, "artist": artist})
+
+    # 4. Save list to a formatted text file
+    filename = f"{title.replace(' ', '_')}.txt"
+    
+    with open(filename, "w") as file:
+        file.write(f"Playlist: {title}\n")
+        file.write(f"Created on: {creation_date}\n")
+        file.write("-" * 30 + "\n")
+        
+        # 5. Number the songs using enumerate
+        for index, item in enumerate(playlist, start=1):
+            file.write(f"{index}. {item['song']} by {item['artist']}\n")
+
+    print(f"\nSuccess! Your playlist has been saved to '{filename}'.")
+
+if __name__ == "__main__":
+    music_manager()
