@@ -1,0 +1,228 @@
+
+import time
+import threading
+import sys
+
+# Shared state for the background timer
+input_state = {"ans": None, "expired": False}
+
+def live_timer(seconds):
+    """The visible ghost of time counting down on your screen."""
+    for i in range(seconds, -1, -1):
+        if input_state["ans"] is not None:
+            # Clear the timer line when answered so it looks clean
+            sys.stdout.write('\r' + ' ' * 70 + '\r')
+            sys.stdout.flush()
+            return
+       
+        # Overwrite the same line with the current second
+        sys.stdout.write(f'\r⏳ TIME REMAINING: {i}s  >> ')
+        sys.stdout.flush()
+        time.sleep(1)
+   
+    if input_state["ans"] is None:
+        input_state["expired"] = True
+        print("\n\n⏰ THE SANDS HAVE RUN OUT! (Press Enter to face the void)")
+
+def load_questions():
+    """The complete 64-question universe. 4 Topics, 4 Rounds each, 4 Questions per round."""
+    return {
+        "Cinematography": {
+            1: [
+                {"q": "Which trilogy used 'Big-atures' for its cities?", "c": ["A) Potter", "B) Rings", "C) Narnia", "D) Dune"], "a": "B"},
+                {"q": "Forced Perspective is what kind of magic?", "c": ["A) CGI", "B) Optical", "C) Sound", "D) Editing"], "a": "B"},
+                {"q": "Who is the 'Painter of Light' on a set?", "c": ["A) Director", "B) DP", "C) Actor", "D) Grip"], "a": "B"},
+                {"q": "Avatar captured what from the actors?", "c": ["A) Motion", "B) Performance", "C) Voice", "D) Mind"], "a": "B"}
+            ],
+            2: [
+                {"q": "Slow motion requires what FPS?", "c": ["A) Lower", "B) Higher", "C) Zero", "D) 24"], "a": "B"},
+                {"q": "A Dutch Angle makes the soul feel...", "c": ["A) Uneasy", "B) Safe", "C) Happy", "D) Bored"], "a": "A"},
+                {"q": "Foley artists give the world its...", "c": ["A) Colors", "B) Sounds", "C) Shapes", "D) Light"], "a": "B"},
+                {"q": "What color grade means 'Danger' or 'Grit'?", "c": ["A) Pink", "B) Desaturated", "C) Neon", "D) White"], "a": "B"}
+            ],
+            3: [
+                {"q": "A 'Deep Focus' shot shows...", "c": ["A) Only front", "B) Only back", "C) Everything", "D) Nothing"], "a": "C"},
+                {"q": "Who cuts the soul of the film together?", "c": ["A) Editor", "B) Writer", "C) Actor", "D) Scout"], "a": "A"},
+                {"q": "A 'Jump Cut' breaks what?", "c": ["A) The Camera", "B) Continuity", "C) The Screen", "D) The Mic"], "a": "B"},
+                {"q": "Steadicam makes movement...", "c": ["A) Shaky", "B) Smooth", "C) Fast", "D) Tilted"], "a": "B"}
+            ],
+            4: [
+                {"q": "The 'Rule of Thirds' is for...", "c": ["A) Sound", "B) Composition", "C) Acting", "D) Catering"], "a": "B"},
+                {"q": "A 'Long Take' has no...", "c": ["A) Actors", "B) Cuts", "C) Light", "D) Sound"], "a": "B"},
+                {"q": "Chiaroscuro is the play of...", "c": ["A) Color", "B) Light/Dark", "C) Wind", "D) Lenses"], "a": "B"},
+                {"q": "CGI stands for Computer Generated...", "c": ["A) Ideas", "B) Imagery", "C) Interest", "D) Icons"], "a": "B"}
+            ]
+        },
+        "Sports": {
+            1: [
+                {"q": "Soccer match length?", "c": ["A) 45m", "B) 90m", "C) 80m", "D) 100m"], "a": "B"},
+                {"q": "Most World Cups?", "c": ["A) Germany", "B) Brazil", "C) Italy", "D) France"], "a": "B"},
+                {"q": "Hoop diameter (inches)?", "c": ["A) 18", "B) 20", "C) 15", "D) 22"], "a": "A"},
+                {"q": "Baseball fielders?", "c": ["A) 11", "B) 9", "C) 7", "D) 10"], "a": "B"}
+            ],
+            2: [
+                {"q": "Grand Slam on grass?", "c": ["A) US", "B) Wimbledon", "C) French", "D) Aussie"], "a": "B"},
+                {"q": "Olympic Rings count?", "c": ["A) 4", "B) 5", "C) 6", "D) 3"], "a": "B"},
+                {"q": "Bowling: 3 strikes?", "c": ["A) Birdie", "B) Turkey", "C) Eagle", "D) Triple"], "a": "B"},
+                {"q": "Tennis 0 score?", "c": ["A) Love", "B) Zip", "C) Null", "D) Ace"], "a": "A"}
+            ],
+            3: [
+                {"q": "Usain Bolt's sport?", "c": ["A) Swimming", "B) Sprinting", "C) Cycling", "D) Boxing"], "a": "B"},
+                {"q": "NBA team in Chicago?", "c": ["A) Lakers", "B) Bulls", "C) Knicks", "D) Heat"], "a": "B"},
+                {"q": "Hockey 'ball' name?", "c": ["A) Ball", "B) Puck", "C) Disk", "D) Stone"], "a": "B"},
+                {"q": "Golf 'Hole in One'?", "c": ["A) Eagle", "B) Ace", "C) Birdie", "D) Bogey"], "a": "B"}
+            ],
+            4: [
+                {"q": "Tour de France sport?", "c": ["A) Running", "B) Cycling", "C) Rowing", "D) Skating"], "a": "B"},
+                {"q": "Super Bowl sport?", "c": ["A) Baseball", "B) Football", "C) Soccer", "D) Rugby"], "a": "B"},
+                {"q": "Boxing ring shape?", "c": ["A) Circle", "B) Square", "C) Hexagon", "D) Oval"], "a": "B"},
+                {"q": "Relay race object?", "c": ["A) Stick", "B) Baton", "C) Ring", "D) Ball"], "a": "B"}
+            ]
+        },
+        "Video Games": {
+            1: [
+                {"q": "First hit game?", "c": ["A) Pong", "B) Mario", "C) Tetris", "D) Pacman"], "a": "A"},
+                {"q": "Mario's brother?", "c": ["A) Wario", "B) Luigi", "C) Waluigi", "D) Bowser"], "a": "B"},
+                {"q": "Pacman color?", "c": ["A) Blue", "B) Yellow", "C) Red", "D) Pink"], "a": "B"},
+                {"q": "PlayStation creator?", "c": ["A) Sega", "B) Sony", "C) Apple", "D) Nintendo"], "a": "B"}
+            ],
+            2: [
+                {"q": "Best seller all time?", "c": ["A) GTA V", "B) Minecraft", "C) Tetris", "D) Sims"], "a": "B"},
+                {"q": "Zelda's hero?", "c": ["A) Zelda", "B) Link", "C) Ganon", "D) Epona"], "a": "B"},
+                {"q": "Roblox currency?", "c": ["A) V-Bucks", "B) Robux", "C) Coins", "D) Gems"], "a": "B"},
+                {"q": "Chief of Halo?", "c": ["A) Master Chief", "B) Arbiter", "C) Doomguy", "D) Shepard"], "a": "A"}
+            ],
+            3: [
+                {"q": "Fortnite creator?", "c": ["A) Valve", "B) Epic Games", "C) EA", "D) Ubisoft"], "a": "B"},
+                {"q": "Pokemon mascot?", "c": ["A) Mewtwo", "B) Pikachu", "C) Eevee", "D) Charmander"], "a": "B"},
+                {"q": "Sonic's rival?", "c": ["A) Tails", "B) Knuckles", "C) Shadow", "D) Eggman"], "a": "D"},
+                {"q": "Steam owner?", "c": ["A) Microsoft", "B) Valve", "C) Sony", "D) Epic"], "a": "B"}
+            ],
+            4: [
+                {"q": "Kratos' son?", "c": ["A) Atreus", "B) Loki", "C) Zeus", "D) Thor"], "a": "A"},
+                {"q": "Among Us 'bad guy'?", "c": ["A) Traitor", "B) Impostor", "C) Killer", "D) Spy"], "a": "B"},
+                {"q": "Skyrim province?", "c": ["A) Cyrodiil", "B) Skyrim", "C) Morrowind", "D) Elsweyr"], "a": "B"},
+                {"q": "The cake is a lie in...", "c": ["A) Halo", "B) Portal", "C) Half-Life", "D) Doom"], "a": "B"}
+            ]
+        },
+        "History": {
+            1: [
+                {"q": "First man on moon?", "c": ["A) Glenn", "B) Armstrong", "C) Aldrin", "D) Collins"], "a": "B"},
+                {"q": "WWII end year?", "c": ["A) 1944", "B) 1945", "C) 1950", "D) 1918"], "a": "B"},
+                {"q": "Pyramid builders?", "c": ["A) Greeks", "B) Egyptians", "C) Romans", "D) Maya"], "a": "B"},
+                {"q": "Painted Mona Lisa?", "c": ["A) Dali", "B) Da Vinci", "C) Monet", "D) Picasso"], "a": "B"}
+            ],
+            2: [
+                {"q": "Great Wall country?", "c": ["A) Japan", "B) China", "C) India", "D) Russia"], "a": "B"},
+                {"q": "Roman God of War?", "c": ["A) Jupiter", "B) Mars", "C) Apollo", "D) Vulcan"], "a": "B"},
+                {"q": "French Queen 'Cake' quote?", "c": ["A) Victoria", "B) Antoinette", "C) Mary", "D) Elizabeth"], "a": "B"},
+                {"q": "Inventor of lightbulb?", "c": ["A) Tesla", "B) Edison", "C) Bell", "D) Newton"], "a": "B"}
+            ],
+            3: [
+                {"q": "The Titanic sank in...", "c": ["A) 1905", "B) 1912", "C) 1920", "D) 1898"], "a": "B"},
+                {"q": "First US President?", "c": ["A) Lincoln", "B) Washington", "C) Jefferson", "D) Adams"], "a": "B"},
+                {"q": "Black Death century?", "c": ["A) 12th", "B) 14th", "C) 16th", "D) 18th"], "a": "B"},
+                {"q": "Magna Carta signed year?", "c": ["A) 1215", "B) 1066", "C) 1492", "D) 1776"], "a": "A"}
+            ],
+            4: [
+                {"q": "Aztec Empire location?", "c": ["A) Brazil", "B) Mexico", "C) Peru", "D) Canada"], "a": "B"},
+                {"q": "Discovered Penicillin?", "c": ["A) Curie", "B) Fleming", "C) Pasteur", "D) Salk"], "a": "B"},
+                {"q": "Cold War ended year?", "c": ["A) 1980", "B) 1989", "C) 1995", "D) 1975"], "a": "B"},
+                {"q": "Ancient Greek warrior city?", "c": ["A) Athens", "B) Sparta", "C) Corinth", "D) Thebes"], "a": "B"}
+            ]
+        }
+    }
+
+def ask_question(question_dict):
+    """The Ritual: Display question, start ticking timer, and get result."""
+    global input_state
+    input_state = {"ans": None, "expired": False}
+   
+    print("\n" + "━" * 60)
+    print(f"🕯️  CHALLENGE: {question_dict['q']}")
+    for choice in question_dict['c']:
+        print(f"   {choice}")
+    print("━" * 60)
+   
+    # Start the ticking timer thread
+    timer_thread = threading.Thread(target=live_timer, args=(60,))
+    timer_thread.daemon = True
+    timer_thread.start()
+
+    # Get input (User must type A, B, C, or D)
+    user_ans = input().strip().upper()
+    input_state["ans"] = user_ans
+
+    if input_state["expired"]:
+        print("💔 You waited too long. The universe has moved on.")
+        return 0
+   
+    if user_ans == question_dict['a']:
+        print("✨ CORRECT! Your spirit shines brighter. +10 Points!")
+        return 10
+    else:
+        print(f"💔 Alas... the truth was {question_dict['a']}. Stay focused!")
+        return 0
+
+def calculate_grade(score, total):
+    """Reflect on the traveler's performance."""
+    pct = (score / total) * 100 if total > 0 else 0
+    if pct >= 90: return "S (Ascended Master)"
+    if pct >= 80: return "A (High Scholar)"
+    if pct >= 70: return "B (Noble Survivor)"
+    if pct >= 60: return "C (Humble Wanderer)"
+    return "F (Lost Soul)"
+
+def show_results(score, total, grade):
+    """The final summary ceremony."""
+    print("\n" + "★" * 60)
+    print("             THE ODYSSEY IS COMPLETE")
+    print(f"             FINAL SCORE: {score} / {total}")
+    print(f"             TITLE GRANTED: {grade}")
+    print("★" * 60)
+
+def play_quiz():
+    """Main Game Engine."""
+    game_data = load_questions()
+    total_score = 0
+    max_possible = 0
+   
+    print("\n🌟 WELCOME, BRAVE TRAVELER, TO THE TIMED ODYSSEY 🌟")
+   
+    while True:
+        topics = list(game_data.keys())
+        print("\n[ SELECT YOUR PATH ]")
+        for i, t in enumerate(topics, 1):
+            print(f"{i}. {t}")
+        print("0. End Journey")
+       
+        choice = input("\nSpeak your choice: ").strip()
+        if choice == "0": break
+       
+        selected_topic = None
+        if choice.isdigit() and 0 < int(choice) <= len(topics):
+            selected_topic = topics[int(choice) - 1]
+        elif choice in game_data:
+            selected_topic = choice
+           
+        if selected_topic:
+            # Loop through 4 Rounds
+            for r_num in range(1, 5):
+                print(f"\n🌊 {selected_topic.upper()} - ENTERING ROUND {r_num} 🌊")
+                time.sleep(0.5)
+               
+                # Loop through 4 Questions per round
+                for q_dict in game_data[selected_topic][r_num]:
+                    total_score += ask_question(q_dict)
+                    max_possible += 10
+           
+            print(f"\n🏆 PATH OF {selected_topic} CONQUERED.")
+        else:
+            print("The spirits are confused. Please pick a valid path.")
+
+    if max_possible > 0:
+        grade = calculate_grade(total_score, max_possible)
+        show_results(total_score, max_possible, grade)
+
+if __name__ == "__main__":
+    play_quiz()
